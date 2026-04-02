@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Users, UserPlus, Building2, Briefcase, Activity, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { api } from '../api';
+import Avatar from './Avatar';
 
 const StatCard = ({ title, value, icon: Icon, trend, colorClass = "bg-blue-50 text-blue-600" }) => (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
@@ -67,7 +68,7 @@ const Dashboard = () => {
     return (
         <div className="max-w-6xl mx-auto">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-primary mb-2">Dashboard</h1>
+                <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Dashboard</h1>
                 <p className="text-muted">Overview of company metrics and HR status.</p>
             </div>
 
@@ -123,11 +124,10 @@ const Dashboard = () => {
                     <div className="space-y-6">
                         {employees.slice(0, 5).map((emp, i) => (
                             <div key={emp.id} className="flex items-center gap-4">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                                    ['bg-blue-100 text-blue-600', 'bg-purple-100 text-purple-600', 'bg-green-100 text-green-600'][i % 3]
-                                }`}>
-                                    {emp.first_name[0]}{emp.last_name[0]}
-                                </div>
+                                <Avatar 
+                                    initials={`${emp.first_name[0]}${emp.last_name[0]}`}
+                                    size="md"
+                                />
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold text-primary truncate">{emp.first_name} {emp.last_name}</p>
                                     <p className="text-xs text-muted truncate">{emp.role || 'New Employee'}</p>

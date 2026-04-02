@@ -1,97 +1,90 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Bell, Search, Check, Trash2, 
   UserPlus, Calendar, AlertCircle,
-  Clock
+  Clock, Sun, Moon, CheckCircle, XCircle, DollarSign
 } from 'lucide-react';
+import { useTheme } from '../App';
+import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationsContext';
+import Avatar from './Avatar';
 
 const Header = () => {
+  const { theme, toggleTheme } = useTheme();
+  const { user } = useAuth();
+  const { getUserNotifications, getUnreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
+  const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const notificationRef = useRef(null);
   
-  const userStr = localStorage.getItem('user');
-  let user = {};
-  try {
-    user = JSON.parse(userStr || '{}');
-  } catch (e) {
-    user = {};
-  }
-  const userName = user.name || 'Admin User';
-  const userRole = user.role === 'admin' ? 'Administrator' : 'Standard Employee';
-  const userInitials = user.initials || 'AD';
+  const userName = user?.name || 'Admin User';
+  const userRole = user?.role === 'admin' ? 'Administrator' : 'Standard Employee';
+  const userInitials = user?.initials || (userName.split(' ').map(n => n[0]).join('').toUpperCase());
+  const userId = user?.id || 1;
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: "Salary Credited",
-      desc: "Your salary for March 2026 has been credited to your bank account.",
-      time: "Just now",
-      type: "salary",
-      icon: Clock,
-      color: "#10B981",
-      isRead: false
-    },
-    {
-      id: 2,
-      title: "New Task Assigned",
-      desc: "You have been assigned: 'Quarterly Performance Review'.",
-      time: "10 mins ago",
-      type: "task",
-      icon: AlertCircle,
-      color: "#3D3B8E",
-      isRead: false
-    },
-    {
-      id: 3,
-      title: "Leave Approved",
-      desc: "Your vacation request for next week has been approved by Admin.",
-      time: "1 hour ago",
-      type: "leave",
-      icon: Calendar,
-      color: "#4F46E5",
-      isRead: false
-    },
-    {
-      id: 4,
-      title: "New Employee Joined",
-      desc: "Sarah Wilson has completed her onboarding.",
-      time: "2 hours ago",
-      type: "onboarding",
-      icon: UserPlus,
-      color: "#F59E0B",
-      isRead: true
+  // Get notifications
+  const userNotifications = getUserNotifications(userId);
+  const unreadCount = getUnreadCount(userId);
+
+  // Map notification types to icons and colors
+  const getNotificationIcon = (type) => {
+    const iconMap = {
+      leave_approved: { icon: CheckCircle, color: '#10B981' },
+      leave_rejected: { icon: XCircle, color: '#EF4444' },
+      new_leave_request: { icon: Calendar, color: '#6366F1' },
+      new_employee: { icon: UserPlus, color: '#F59E0B' },
+      payroll_processed: { icon: DollarSign, color: '#10B981' },
+      default: { icon: AlertCircle, color: '#3D3B8E' }
+    };
+    return iconMap[type] || iconMap.default;
+  };
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000); // seconds
+
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const handleNotificationClick = (notification) => {
+    markAsRead(notification.id);
+    if (notification.link) {
+      navigate(notification.link);
+      setShowNotifications(false);
     }
-  ]);
+  };
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const handleMarkAllAsRead = () => {
+    markAllAsRead(userId);
+  };
+
+  const handleClearAll = () => {
+    clearAll(userId);
+    setShowNotifications(false);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+      if (notificationRef.current && !notificationRef.current.contains(event.target))
         setShowNotifications(false);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, isRead: true } : n
-    ));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-    setShowNotifications(false);
-  };
-
   return (
     <header style={{
       height: '64px',
-      backgroundColor: '#fff',
-      borderBottom: '1px solid #E5E7EB',
+      backgroundColor: 'var(--header-bg)',
+      borderBottom: '1px solid var(--border-color)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -99,7 +92,8 @@ const Header = () => {
       position: 'sticky',
       top: 0,
       zIndex: 100,
-      fontFamily: "'Inter', sans-serif"
+      fontFamily: "'Inter', sans-serif",
+      transition: 'background-color 0.3s ease, border-color 0.3s ease'
     }}>
       {/* Search Bar */}
       <div style={{ position: 'relative', width: '400px' }}>
@@ -108,7 +102,7 @@ const Header = () => {
           left: '12px',
           top: '50%',
           transform: 'translateY(-50%)',
-          color: '#9CA3AF'
+          color: 'var(--text-secondary)'
         }}>
           <Search size={18} />
         </div>
@@ -120,22 +114,22 @@ const Header = () => {
           style={{
             width: '100%',
             padding: '10px 12px 10px 40px',
-            backgroundColor: '#F9FAFB',
-            border: '1px solid #E5E7EB',
+            backgroundColor: 'var(--input-bg)',
+            border: '1px solid var(--border-color)',
             borderRadius: '12px',
             fontSize: '14px',
             outline: 'none',
             transition: 'all 0.2s',
-            color: '#1E1B4B'
+            color: 'var(--text-primary)'
           }}
           onFocus={(e) => {
-            e.target.style.borderColor = '#3D3B8E';
-            e.target.style.backgroundColor = '#fff';
+            e.target.style.borderColor = 'var(--accent-color)';
+            e.target.style.backgroundColor = 'var(--bg-card)';
             e.target.style.boxShadow = '0 0 0 4px rgba(61, 59, 142, 0.05)';
           }}
           onBlur={(e) => {
-            e.target.style.borderColor = '#E5E7EB';
-            e.target.style.backgroundColor = '#F9FAFB';
+            e.target.style.borderColor = 'var(--border-color)';
+            e.target.style.backgroundColor = 'var(--input-bg)';
             e.target.style.boxShadow = 'none';
           }}
         />
@@ -143,6 +137,35 @@ const Header = () => {
 
       {/* Right Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            transform: theme === 'dark' ? 'rotate(180deg) scale(1)' : 'rotate(0deg) scale(1)'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--bg-primary)';
+            e.currentTarget.style.color = 'var(--accent-color)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'var(--text-secondary)';
+          }}
+        >
+          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+        </button>
+
         {/* Notification Bell */}
         <div style={{ position: 'relative' }} ref={notificationRef}>
           <button 
@@ -151,9 +174,9 @@ const Header = () => {
               width: '40px',
               height: '40px',
               borderRadius: '10px',
-              backgroundColor: showNotifications ? '#EEF2FF' : 'transparent',
+              backgroundColor: showNotifications ? 'rgba(61, 59, 142, 0.1)' : 'transparent',
               border: 'none',
-              color: showNotifications ? '#3D3B8E' : '#6B7280',
+              color: showNotifications ? 'var(--accent-color)' : 'var(--text-secondary)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -162,7 +185,7 @@ const Header = () => {
               position: 'relative'
             }}
             onMouseOver={(e) => {
-              if (!showNotifications) e.currentTarget.style.backgroundColor = '#F3F4F6';
+              if (!showNotifications) e.currentTarget.style.backgroundColor = 'var(--bg-primary)';
             }}
             onMouseOut={(e) => {
               if (!showNotifications) e.currentTarget.style.backgroundColor = 'transparent';
@@ -170,31 +193,34 @@ const Header = () => {
           >
             <Bell size={20} />
             {unreadCount > 0 && (
-              <div style={{
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                width: '10px',
-                height: '10px',
-                backgroundColor: '#EF4444',
-                borderRadius: '50%',
-                border: '2px solid #fff'
-              }} />
+              <span 
+                className="ripple-badge"
+                style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '8px',
+                  width: '10px',
+                  height: '10px',
+                  backgroundColor: '#EF4444',
+                  borderRadius: '50%',
+                  border: '2px solid var(--header-bg)'
+                }} 
+              />
             )}
           </button>
 
           {/* Notifications Dropdown */}
           {showNotifications && (
             <div style={{
-              position: 'absolute',
-              top: '52px',
-              right: '0',
-              width: '360px',
-              backgroundColor: '#fff',
-              borderRadius: '20px',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-              border: '1px solid #E5E7EB',
-              overflow: 'hidden',
+              position: 'absolute', 
+              top: '52px', 
+              right: '0', 
+              width: '360px', 
+              backgroundColor: 'var(--bg-card)', 
+              borderRadius: '20px', 
+              boxShadow: 'var(--card-shadow)', 
+              border: '1px solid var(--border-color)', 
+              overflow: 'hidden', 
               animation: 'slideDown 0.2s ease-out'
             }}>
               <style>{`
@@ -206,16 +232,24 @@ const Header = () => {
               
               <div style={{
                 padding: '20px 24px',
-                borderBottom: '1px solid #F3F4F6',
+                borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#1E1B4B', margin: 0 }}>Notifications</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>Notifications</h3>
                 <div style={{ display: 'flex', gap: '12px' }}>
+                  {unreadCount > 0 && (
+                    <button 
+                      onClick={handleMarkAllAsRead}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '600' }}
+                    >
+                      <Check size={14} /> Mark all read
+                    </button>
+                  )}
                   <button 
-                    onClick={clearAll}
-                    style={{ background: 'none', border: 'none', color: '#6B7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '600' }}
+                    onClick={handleClearAll}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '600' }}
                   >
                     <Trash2 size={14} /> Clear
                   </button>
@@ -223,61 +257,63 @@ const Header = () => {
               </div>
 
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {notifications.length === 0 ? (
+                {userNotifications.length === 0 ? (
                   <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                    <div style={{ color: '#E5E7EB', marginBottom: '12px' }}><Bell size={40} style={{ margin: '0 auto' }} /></div>
-                    <p style={{ color: '#9CA3AF', fontSize: '14px', margin: 0 }}>No new notifications</p>
+                    <div style={{ color: 'var(--border-color)', marginBottom: '12px' }}><Bell size={40} style={{ margin: '0 auto' }} /></div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>No new notifications</p>
                   </div>
                 ) : (
-                  notifications.map((n) => (
-                    <div 
-                      key={n.id}
-                      onClick={() => markAsRead(n.id)}
-                      style={{
-                        padding: '16px 24px',
-                        borderBottom: '1px solid #F9FAFB',
-                        display: 'flex',
-                        gap: '16px',
-                        cursor: 'pointer',
-                        backgroundColor: n.isRead ? 'transparent' : '#F9FAFB',
-                        transition: 'background-color 0.2s'
-                      }}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = n.isRead ? 'transparent' : '#F9FAFB'}
-                    >
-                      <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '12px',
-                        backgroundColor: `${n.color}10`,
-                        color: n.color,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
-                        <n.icon size={20} />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: '700', color: '#1E1B4B' }}>{n.title}</span>
-                          {!n.isRead && <div style={{ width: '6px', height: '6px', backgroundColor: '#3D3B8E', borderRadius: '50%', marginTop: '6px' }} />}
+                  userNotifications.map((notification) => {
+                    const { icon: Icon, color } = getNotificationIcon(notification.type);
+                    return (
+                      <div 
+                        key={notification.id}
+                        onClick={() => handleNotificationClick(notification)}
+                        style={{
+                          padding: '16px 24px',
+                          borderBottom: '1px solid var(--border-color)',
+                          display: 'flex',
+                          gap: '16px',
+                          cursor: 'pointer',
+                          backgroundColor: notification.read ? 'transparent' : 'var(--bg-primary)',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-primary)'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = notification.read ? 'transparent' : 'var(--bg-primary)'}
+                      >
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '12px',
+                          backgroundColor: `${color}15`,
+                          color: color,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <Icon size={20} />
                         </div>
-                        <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 8px 0', lineHeight: '1.4' }}>{n.desc}</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#9CA3AF', fontSize: '11px' }}>
-                          <Clock size={12} /> {n.time}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.4' }}>{notification.message}</span>
+                            {!notification.read && <div style={{ width: '6px', height: '6px', backgroundColor: 'var(--accent-color)', borderRadius: '50%', marginTop: '6px', flexShrink: 0, marginLeft: '8px' }} />}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)', fontSize: '11px' }}>
+                            <Clock size={12} /> {formatTimestamp(notification.timestamp)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
-              <div style={{ padding: '16px', textAlign: 'center', backgroundColor: '#F9FAFB' }}>
+              <div style={{ padding: '16px', textAlign: 'center', backgroundColor: 'var(--bg-primary)' }}>
                 <button style={{ 
                   background: 'none', 
                   border: 'none', 
-                  color: '#3D3B8E', 
+                  color: 'var(--accent-color)', 
                   fontSize: '13px', 
                   fontWeight: '700', 
                   cursor: 'pointer' 
@@ -287,26 +323,22 @@ const Header = () => {
           )}
         </div>
 
-        {/* User Profile Summary */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '20px', borderLeft: '1px solid #E5E7EB' }}>
+        {/* User Profile */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '6px 6px 6px 12px',
+          backgroundColor: 'var(--bg-primary)',
+          borderRadius: '14px',
+          border: '1px solid var(--border-color)',
+          cursor: 'pointer'
+        }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '13px', fontWeight: '800', color: '#1E1B4B' }}>{userName}</div>
-            <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: '600' }}>{userRole}</div>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>{userName}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500' }}>{userRole}</div>
           </div>
-          <div style={{ 
-            width: '40px', 
-            height: '40px', 
-            borderRadius: '12px', 
-            backgroundColor: '#1E1B4B',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: '800',
-            fontSize: '14px'
-          }}>
-            {userInitials}
-          </div>
+          <Avatar initials={userInitials} size="sm" />
         </div>
       </div>
     </header>

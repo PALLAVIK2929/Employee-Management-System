@@ -1,9 +1,20 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Edit2, Trash2, Mail, Briefcase, Hash, User, Building2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 function EmployeeList({ employees, departments, onEdit, onDelete }) {
+    const navigate = useNavigate();
+    const { role } = useAuth();
+    const isAdmin = role === 'admin';
+    
     const getDepartmentName = (id) => {
         const dept = departments.find(d => d.id === id);
         return dept ? dept.name : 'Unassigned';
+    };
+
+    const handleNameClick = (empId) => {
+        navigate(`/profile/${empId}`);
     };
 
     return (
@@ -16,14 +27,20 @@ function EmployeeList({ employees, departments, onEdit, onDelete }) {
                         <th><div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Mail size={14} className="text-muted" /> Email</div></th>
                         <th><div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Briefcase size={14} className="text-muted" /> Role</div></th>
                         <th><div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}><Building2 size={14} className="text-muted" /> Department</div></th>
-                        <th>Actions</th>
+                        {isAdmin && <th>Actions</th>}
                     </tr>
                 </thead>
                 <tbody>
                     {employees.map((emp) => (
                         <tr key={emp.id}>
                             <td><span className="badge badge-outline">{emp.id}</span></td>
-                            <td style={{ fontWeight: 500 }}>{emp.first_name} {emp.last_name}</td>
+                            <td 
+                                style={{ fontWeight: 500, cursor: 'pointer', color: 'var(--accent-color)' }}
+                                onClick={() => handleNameClick(emp.id)}
+                                className="hover:underline"
+                            >
+                                {emp.first_name} {emp.last_name}
+                            </td>
                             <td style={{ color: 'var(--text-muted)' }}>{emp.email}</td>
                             <td>{emp.role || '-'}</td>
                             <td>
@@ -31,24 +48,26 @@ function EmployeeList({ employees, departments, onEdit, onDelete }) {
                                     {getDepartmentName(emp.department_id)}
                                 </span>
                             </td>
-                            <td>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <button
-                                        className="btn btn-sm btn-ghost icon-box-primary"
-                                        onClick={() => onEdit(emp)}
-                                        title="Edit Employee"
-                                    >
-                                        <Edit2 size={14} />
-                                    </button>
-                                    <button
-                                        className="btn btn-sm btn-danger icon-box-danger"
-                                        onClick={() => onDelete(emp.id)}
-                                        title="Delete Employee"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            </td>
+                            {isAdmin && (
+                                <td>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button
+                                            className="btn btn-sm btn-ghost icon-box-primary"
+                                            onClick={() => onEdit(emp)}
+                                            title="Edit Employee"
+                                        >
+                                            <Edit2 size={14} />
+                                        </button>
+                                        <button
+                                            className="btn btn-sm btn-danger icon-box-danger"
+                                            onClick={() => onDelete(emp.id)}
+                                            title="Delete Employee"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </td>
+                            )}
                         </tr>
                     ))}
                     {employees.length === 0 && (

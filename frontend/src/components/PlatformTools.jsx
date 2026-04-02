@@ -214,23 +214,23 @@ const PlatformTools = () => {
             )}
 
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-primary mb-2">Platform Tools</h1>
+                <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Platform Tools</h1>
                 <p className="text-muted">Access and execute system management tools through the MCP interface.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 {/* Tools Sidebar */}
                 <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-250px)]">
-                        <div className="p-4 border-b border-gray-50 bg-gray-50/50">
+                    <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] shadow-sm overflow-hidden flex flex-col h-[calc(100vh-250px)]">
+                        <div className="p-4 border-b border-[var(--border-color)] bg-[var(--input-bg)]">
                             <div className="relative">
-                                <Search size={14} className="absolute left-3 top-3 text-muted" />
+                                <Search size={14} className="absolute left-3 top-3 text-[var(--text-secondary)]" />
                                 <input
                                     type="text"
                                     placeholder="Search tools..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-accent text-sm shadow-sm"
+                                    className="w-full pl-9 pr-4 py-2 bg-[var(--input-bg)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:border-[var(--accent-color)] text-[var(--text-primary)] text-sm shadow-sm"
                                 />
                             </div>
                         </div>
@@ -241,14 +241,14 @@ const PlatformTools = () => {
                                     onClick={() => handleSelectTool(tool)}
                                     className={`w-full text-left p-3 rounded-xl transition-all group ${
                                         selectedTool?.name === tool.name 
-                                        ? 'bg-accent text-white shadow-lg shadow-accent/20' 
-                                        : 'hover:bg-gray-50 text-muted hover:text-primary'
+                                        ? 'bg-[var(--accent-color)] text-white shadow-lg' 
+                                        : 'hover:bg-[var(--input-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                     }`}
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className={`p-1.5 rounded-lg ${
-                                                selectedTool?.name === tool.name ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-white'
+                                                selectedTool?.name === tool.name ? 'bg-white/20' : 'bg-[var(--input-bg)] group-hover:bg-[var(--bg-card)]'
                                             }`}>
                                                 <Box size={14} />
                                             </div>
@@ -268,18 +268,18 @@ const PlatformTools = () => {
                         <div className="grid grid-cols-1 gap-8">
                             {/* Execution Panel */}
                             <div className="space-y-8 max-w-4xl">
-                                <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                                <div className="bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border-color)] shadow-sm space-y-6">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600">
+                                        <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400">
                                             <Play size={24} />
                                         </div>
                                         <div>
-                                            <h2 className="text-xl font-bold text-primary">{selectedTool.name}</h2>
-                                            <p className="text-xs text-muted mt-1 uppercase tracking-widest font-bold">Tool Configuration</p>
+                                            <h2 className="text-xl font-bold text-[var(--text-primary)]">{selectedTool.name}</h2>
+                                            <p className="text-xs text-[var(--text-secondary)] mt-1 uppercase tracking-widest font-bold">Tool Configuration</p>
                                         </div>
                                     </div>
 
-                                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm text-muted leading-relaxed italic">
+                                    <div className="p-4 bg-[var(--input-bg)] rounded-xl border border-[var(--border-color)] text-sm text-[var(--text-secondary)] leading-relaxed italic">
                                         {selectedTool.description}
                                     </div>
 
@@ -289,7 +289,7 @@ const PlatformTools = () => {
                                             const isRequired = selectedTool.inputSchema.required?.includes(key);
                                             return (
                                                 <div key={key} className="space-y-2">
-                                                    <label className="text-xs font-bold text-primary uppercase tracking-widest flex items-center justify-between">
+                                                    <label className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-widest flex items-center justify-between">
                                                         {key.replace(/_/g, ' ')}
                                                         {isRequired && <span className="text-[10px] text-red-500 font-bold">Required</span>}
                                                     </label>
@@ -299,7 +299,7 @@ const PlatformTools = () => {
                                                         onChange={(e) => handleArgChange(key, e.target.value)}
                                                         placeholder={prop.description || `Enter ${key}...`}
                                                         required={isRequired}
-                                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-sm font-medium shadow-sm transition-all"
+                                                        className="w-full px-4 py-3 bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:border-[var(--accent-color)] text-[var(--text-primary)] text-sm font-medium shadow-sm transition-all"
                                                     />
                                                 </div>
                                             );
@@ -309,8 +309,8 @@ const PlatformTools = () => {
                                             disabled={isLoading}
                                             className={`w-full py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${
                                                 isLoading 
-                                                ? 'bg-gray-100 text-gray-400' 
-                                                : 'bg-primary text-white hover:bg-opacity-90 shadow-xl shadow-primary/20'
+                                                ? 'bg-[var(--input-bg)] text-[var(--text-secondary)]' 
+                                                : 'bg-[var(--accent-color)] text-white hover:opacity-90 shadow-xl'
                                             }`}
                                         >
                                             {isLoading ? <Loader2 className="animate-spin" size={20} /> : <Play size={20} />}
@@ -321,12 +321,12 @@ const PlatformTools = () => {
 
                                 {/* Results View */}
                                 {results && (
-                                    <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    <div className="bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border-color)] shadow-sm space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-lg bg-green-50 text-green-600">
+                                            <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400">
                                                 <Database size={20} />
                                             </div>
-                                            <h3 className="text-lg font-bold text-primary">Output Results</h3>
+                                            <h3 className="text-lg font-bold text-[var(--text-primary)]">Output Results</h3>
                                         </div>
                                         <RenderResults data={results} />
                                     </div>
@@ -334,13 +334,13 @@ const PlatformTools = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="h-[500px] flex flex-col items-center justify-center bg-white rounded-2xl border border-gray-200 border-dashed p-12 text-center">
-                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 mb-6">
+                        <div className="h-[500px] flex flex-col items-center justify-center bg-[var(--bg-card)] rounded-2xl border-2 border-dashed border-[var(--border-color)] p-12 text-center">
+                            <div className="w-20 h-20 bg-[var(--input-bg)] rounded-full flex items-center justify-center text-[var(--text-secondary)] mb-6">
                                 <Code size={40} />
                             </div>
-                            <h3 className="text-lg font-bold text-primary mb-2">Select a Tool to Begin</h3>
-                            <p className="text-sm text-muted max-w-xs mx-auto leading-relaxed">
-                                Choose a tool from the sidebar to configure and execute on the platform.
+                            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Select a tool to configure and run</h3>
+                            <p className="text-sm text-[var(--text-secondary)] max-w-xs mx-auto leading-relaxed">
+                                Choose a tool from the sidebar to get started
                             </p>
                         </div>
                     )}

@@ -1,62 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   Home, Users, Building2, BrainCircuit, FileUp, 
   LayoutDashboard, BookOpen, Terminal, User,
   LogOut, Settings, Calendar, CreditCard, CheckSquare,
-  BarChart3
+  BarChart3, Award, Clock, Menu, X
 } from 'lucide-react';
-import { api } from '../api';
-
-const NavSection = ({ title, items }) => (
-  <div className="mb-6">
-    <h3 className="px-4 mb-2 text-xs font-semibold text-muted uppercase tracking-wider">
-      {title}
-    </h3>
-    <div className="space-y-1">
-      {items.map((item) => (
-        <NavLink
-          key={item.path}
-          to={item.path}
-          className={({ isActive }) =>
-            `flex items-center gap-3 px-4 py-2 text-sm font-medium transition-colors border-l-4 ${
-              isActive 
-                ? 'bg-accent-light text-accent border-accent' 
-                : 'text-muted border-transparent hover:bg-gray-50 hover:text-primary'
-            }`
-          }
-        >
-          <item.icon size={18} />
-          <span>{item.label}</span>
-        </NavLink>
-      ))}
-    </div>
-  </div>
-);
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
-  const userStr = localStorage.getItem('user');
-  let user = {};
-  try {
-    user = JSON.parse(userStr || '{}');
-  } catch (e) {
-    user = {};
-  }
-  const role = user.role || 'admin'; // Default to admin for existing sessions
+  const { role, logout, isAuthenticated } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  if (!token) return null;
-
-  const colors = {
-    white: '#fff',
-    primary: '#1E1B4B',
-    accent: '#3D3B8E',
-    hover: '#EEF2FF',
-    muted: '#6B7280',
-    border: '#E5E7EB',
-    red: '#EF4444'
-  };
+  if (!isAuthenticated) return null;
 
   const sections = [
     {
@@ -64,14 +21,16 @@ const Sidebar = () => {
       items: [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/home' },
         { icon: Users, label: 'Employees', path: '/employees', adminOnly: true },
-        { icon: Building2, label: 'Departments', path: '/departments', adminOnly: true },
+        { icon: Building2, label: 'Departments', path: '/departments' },
         { icon: Calendar, label: 'Leaves', path: '/leaves' },
+        { icon: Award, label: 'Performance', path: '/performance' },
+        { icon: Clock, label: 'Attendance', path: '/attendance' },
       ]
     },
     {
       title: 'WORKFORCE',
       items: [
-        { icon: BrainCircuit, label: 'Onboarding', path: '/onboarding' },
+        { icon: BrainCircuit, label: 'Onboarding', path: '/onboarding', adminOnly: true },
         { icon: CheckSquare, label: 'Tasks', path: '/tasks', employeeOnly: true },
         { icon: FileUp, label: 'Bulk Upload', path: '/bulk-upload', adminOnly: true },
       ]
@@ -85,7 +44,7 @@ const Sidebar = () => {
     {
       title: 'INSIGHTS',
       items: [
-        { icon: BarChart3, label: 'Analytics', path: '/analytics' },
+        { icon: BarChart3, label: 'Analytics', path: '/analytics', adminOnly: true },
       ]
     },
     {
@@ -101,33 +60,54 @@ const Sidebar = () => {
   const filteredSections = sections.map(section => ({
     ...section,
     items: section.items.filter(item => {
-      const isAdmin = role === 'admin';
-      if (item.adminOnly && !isAdmin) return false;
-      if (item.employeeOnly && isAdmin) return false;
+      if (item.adminOnly && role !== 'admin') return false;
+      if (item.employeeOnly && role === 'admin') return false;
       return true;
     })
   })).filter(section => section.items.length > 0);
 
   return (
-    <div style={{
-      width: '215px',
-      height: '100vh',
-      backgroundColor: colors.white,
-      borderRight: `1px solid ${colors.border}`,
-      position: 'fixed',
-      left: 0,
-      top: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      zIndex: 50,
-      fontFamily: "'Inter', sans-serif"
-    }}>
+    <>
+      {/* Mobile Hamburger Button */}
+      <button
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="md:hidden fixed top-4 left-4 z-[60] p-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg shadow-lg"
+        aria-label="Toggle menu"
+      >
+        {isMobileMenuOpen ? <X size={24} className="text-[var(--text-primary)]" /> : <Menu size={24} className="text-[var(--text-primary)]" />}
+      </button>
+
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div 
+        className={`sidebar-container ${isMobileMenuOpen ? 'sidebar-mobile-open' : ''}`}
+        style={{
+          width: '215px',
+          height: '100vh',
+          backgroundColor: 'var(--bg-sidebar)',
+          borderRight: '1px solid var(--sidebar-border)',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 50,
+          fontFamily: "'Inter', sans-serif",
+          transition: 'all 0.3s ease'
+        }}>
       <div style={{
         height: '64px',
         display: 'flex',
         alignItems: 'center',
         padding: '0 1.5rem',
-        borderBottom: `1px solid #F3F4F6`
+        borderBottom: '1px solid var(--border-color)'
       }}>
         <div 
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
@@ -136,17 +116,17 @@ const Sidebar = () => {
           <div style={{
             width: '32px',
             height: '32px',
-            backgroundColor: colors.primary,
+            backgroundColor: 'var(--accent-color)',
             borderRadius: '8px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: colors.white,
+            color: '#fff',
             fontWeight: 'bold'
           }}>
             E
           </div>
-          <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: colors.primary }}>EMS</span>
+          <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>EMS</span>
         </div>
       </div>
 
@@ -158,7 +138,7 @@ const Sidebar = () => {
               marginBottom: '0.5rem',
               fontSize: '0.65rem',
               fontWeight: '800',
-              color: colors.muted,
+              color: 'var(--text-secondary)',
               letterSpacing: '0.1em'
             }}>
               {section.title}
@@ -168,6 +148,8 @@ const Sidebar = () => {
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="sidebar-item"
                   style={({ isActive }) => ({
                     display: 'flex',
                     alignItems: 'center',
@@ -176,10 +158,10 @@ const Sidebar = () => {
                     fontSize: '0.875rem',
                     fontWeight: '600',
                     textDecoration: 'none',
-                    transition: 'all 0.2s',
-                    borderLeft: `3px solid ${isActive ? colors.accent : 'transparent'}`,
-                    backgroundColor: isActive ? colors.hover : 'transparent',
-                    color: isActive ? colors.accent : colors.muted
+                    transition: 'all 0.3s ease',
+                    borderLeft: `3px solid ${isActive ? 'var(--accent-color)' : 'transparent'}`,
+                    backgroundColor: isActive ? 'var(--bg-primary)' : 'transparent',
+                    color: isActive ? 'var(--accent-color)' : 'var(--text-secondary)'
                   })}
                 >
                   <item.icon size={18} />
@@ -191,25 +173,25 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      <div style={{ padding: '1rem', borderTop: `1px solid #F3F4F6` }}>
+      <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
         <button 
-          onClick={api.logout}
+          onClick={logout}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '0.75rem',
-            padding: '0.625rem 1rem',
             width: '100%',
+            padding: '0.625rem 0.75rem',
             fontSize: '0.875rem',
-            fontWeight: '700',
-            color: colors.red,
+            fontWeight: '600',
+            color: '#EF4444',
             backgroundColor: 'transparent',
             border: 'none',
-            borderRadius: '8px',
+            borderRadius: '0.5rem',
             cursor: 'pointer',
-            transition: 'background-color 0.2s'
+            transition: 'all 0.2s'
           }}
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#FEF2F2'}
+          onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'}
           onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
         >
           <LogOut size={18} />
@@ -217,6 +199,19 @@ const Sidebar = () => {
         </button>
       </div>
     </div>
+
+    <style>{`
+      @media (max-width: 768px) {
+        .sidebar-container {
+          transform: translateX(-100%);
+        }
+        
+        .sidebar-container.sidebar-mobile-open {
+          transform: translateX(0);
+        }
+      }
+    `}</style>
+    </>
   );
 };
 

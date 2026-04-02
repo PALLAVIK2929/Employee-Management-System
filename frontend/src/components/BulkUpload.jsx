@@ -96,23 +96,23 @@ function BulkUpload({ onUploadSuccess }) {
     return (
         <div className="max-w-4xl mx-auto space-y-8">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-primary mb-2">Bulk Employee Upload</h1>
+                <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Bulk Employee Upload</h1>
                 <p className="text-muted">Import multiple employees at once using a CSV file or manual entry.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Left side: Upload card */}
-                <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                <div className="bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border-color)] shadow-sm space-y-6">
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                        <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
                             <Upload size={20} />
                         </div>
-                        <h2 className="text-lg font-bold text-primary">Upload CSV File</h2>
+                        <h2 className="text-lg font-bold text-[var(--text-primary)]">Upload CSV File</h2>
                     </div>
 
                     <div 
                         onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-accent hover:bg-gray-50 transition-all group"
+                        className="border-2 border-dashed border-[var(--border-color)] rounded-xl p-8 text-center cursor-pointer hover:border-[var(--accent-color)] hover:bg-[var(--input-bg)] transition-all group"
                     >
                         <input 
                             type="file" 
@@ -121,16 +121,16 @@ function BulkUpload({ onUploadSuccess }) {
                             accept=".csv" 
                             className="hidden" 
                         />
-                        <div className="mx-auto w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-muted group-hover:text-accent group-hover:bg-accent-light transition-colors mb-4">
+                        <div className="mx-auto w-12 h-12 bg-[var(--input-bg)] rounded-full flex items-center justify-center text-[var(--text-secondary)] group-hover:text-[var(--accent-color)] transition-colors mb-4">
                             <FileText size={24} />
                         </div>
-                        <p className="text-sm font-bold text-primary">Click to upload or drag and drop</p>
-                        <p className="text-xs text-muted mt-1">CSV files only (max 10MB)</p>
+                        <p className="text-sm font-bold text-[var(--text-primary)]">Click to upload or drag and drop</p>
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">CSV files only (max 10MB)</p>
                     </div>
 
                     <button 
                         onClick={downloadTemplate}
-                        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-accent bg-accent-light hover:bg-opacity-80 rounded-xl transition-colors"
+                        className="w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold text-[var(--accent-color)] bg-transparent border-2 border-[var(--accent-color)] hover:bg-[var(--accent-color)] hover:text-white rounded-xl transition-all"
                     >
                         <Download size={18} />
                         Download CSV Template
@@ -138,12 +138,12 @@ function BulkUpload({ onUploadSuccess }) {
                 </div>
 
                 {/* Right side: Information/Instructions card */}
-                <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                <div className="bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border-color)] shadow-sm space-y-6">
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 rounded-lg bg-purple-50 text-purple-600">
+                        <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400">
                             <Sparkles size={20} />
                         </div>
-                        <h2 className="text-lg font-bold text-primary">Import Tips</h2>
+                        <h2 className="text-lg font-bold text-[var(--text-primary)]">Import Tips</h2>
                     </div>
 
                     <div className="space-y-4">
@@ -154,14 +154,14 @@ function BulkUpload({ onUploadSuccess }) {
                             "You can always edit employee details after the import."
                         ].map((tip, i) => (
                             <div key={i} className="flex gap-3">
-                                <div className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-accent"></div>
-                                <p className="text-sm text-muted">{tip}</p>
+                                <div className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--accent-color)]"></div>
+                                <p className="text-sm text-[var(--text-secondary)]">{tip}</p>
                             </div>
                         ))}
                     </div>
 
                     <div className="pt-4">
-                        <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-xl flex gap-3 text-yellow-800">
+                        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-800/30 rounded-xl flex gap-3 text-yellow-800 dark:text-yellow-400">
                             <AlertCircle className="flex-shrink-0" size={18} />
                             <p className="text-xs leading-relaxed">
                                 <strong>Warning:</strong> Bulk upload will create new employee records. Existing records with the same email will be skipped to prevent duplicates.
@@ -172,10 +172,10 @@ function BulkUpload({ onUploadSuccess }) {
             </div>
 
             {/* Manual Entry / Data Review area */}
-            <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+            <div className="bg-[var(--bg-card)] p-8 rounded-2xl border border-[var(--border-color)] shadow-sm space-y-6">
                 <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-lg font-bold text-primary flex items-center gap-2">
-                        <FileText size={20} className="text-accent" />
+                    <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+                        <FileText size={20} className="text-[var(--accent-color)]" />
                         CSV Data Preview
                     </h2>
                     {status.message && (
@@ -189,7 +189,7 @@ function BulkUpload({ onUploadSuccess }) {
                 </div>
 
                 <textarea
-                    className="w-full h-48 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-accent text-sm font-mono"
+                    className="w-full h-48 p-4 bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:border-[var(--accent-color)] text-[var(--text-primary)] text-sm font-mono"
                     placeholder="first_name, last_name, email, role&#10;John, Doe, john@example.com, Developer"
                     value={bulkData}
                     onChange={(e) => setBulkData(e.target.value)}
@@ -201,8 +201,8 @@ function BulkUpload({ onUploadSuccess }) {
                         disabled={!bulkData.trim() || isLoading}
                         className={`px-8 py-3 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${
                             !bulkData.trim() || isLoading 
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-primary text-white hover:bg-opacity-90 shadow-lg shadow-primary/20'
+                            ? 'bg-[var(--input-bg)] text-[var(--text-secondary)] cursor-not-allowed'
+                            : 'bg-[var(--accent-color)] text-white hover:bg-opacity-90 shadow-lg'
                         }`}
                     >
                         {isLoading ? (

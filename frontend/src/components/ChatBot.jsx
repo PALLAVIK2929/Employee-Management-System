@@ -1,411 +1,405 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { api } from '../api';
-import { 
-  Send, Bot, User, Sparkles, MessageSquare, 
-  ShieldCheck, Loader2, Plus, History, 
-  BookOpen, Info, ExternalLink, Hash,
-  Paperclip, Smile, Search, ChevronRight,
-  MoreVertical, Download, Maximize2
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, X, MessageCircle, Bot, User, Loader2, Download, Trash2, Plus, History, MessageSquare } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import Avatar from './Avatar';
 
-const ChatBot = () => {
-  // 1. State Management
-  const [messages, setMessages] = useState([
-    { 
-      text: "Hello! I'm your AI Handbook Assistant. I'm connected to the latest company policies, benefits guides, and conduct manuals. How can I help you navigate our platform today?", 
-      sender: 'bot',
-      timestamp: new Date()
-    }
-  ]);
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const SYSTEM_PROMPT = `You are an HR Assistant for a company using an Employee Management System (EMS). 
+You help employees and admins with questions about: 
+- Leave policies and how to apply 
+- Onboarding processes 
+- Department structures 
+- Company handbook and HR policies 
+- Employee benefits and payroll queries 
+- General HR best practices 
+Keep responses concise, friendly, and professional. 
+If asked something outside HR scope, politely redirect.`;
+
+const ChatInterface = ({ isDrawer = false, onClose = null }) => {
+  const { user } = useAuth();
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('hr_chat_history');
+    return saved ? JSON.parse(saved) : [
+      { 
+        role: 'assistant', 
+        content: "Hi! I'm your HR Assistant. Ask me anything about company policies, leave rules, onboarding, or employee management.",
+        timestamp: new Date().toISOString()
+      }
+    ];
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
 
   const suggestions = [
-    { title: "Vacation Policy", icon: "🏖️", text: "What is the annual leave policy?" },
-    { title: "Expense Claims", icon: "💸", text: "How do I submit travel expenses?" },
-    { title: "Health Benefits", icon: "🏥", text: "What health insurance do we provide?" },
-    { title: "IT Support", icon: "💻", text: "How to reset my work password?" }
+    "What is the leave policy?",
+    "How do I onboard a new employee?",
+    "What are the working hours?",
+    "How do I apply for leave?"
   ];
 
-  // 2. Design Tokens
-  const colors = {
-    white: '#fff',
-    pageBg: '#F3F4F6',
-    primary: '#1E1B4B',
-    accent: '#3D3B8E',
-    lightPurple: '#EEF2FF',
-    muted: '#6B7280',
-    border: '#E5E7EB',
-    botBubble: '#F9FAFB',
-    userBubble: '#1E1B4B',
-    success: '#10B981'
-  };
-
-  // 3. Handlers
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    localStorage.setItem('hr_chat_history', JSON.stringify(messages.slice(-10)));
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  const handleSend = async (e, textOverride = null) => {
-    if (e) e.preventDefault();
+  const handleSend = async (textOverride = null) => {
     const messageText = textOverride || input;
     if (!messageText.trim() || isLoading) return;
 
-    const userMsg = { 
-      text: messageText, 
-      sender: 'user', 
-      timestamp: new Date() 
+    const newUserMsg = { 
+      role: 'user', 
+      content: messageText, 
+      timestamp: new Date().toISOString() 
     };
     
+    setMessages(prev => [...prev, newUserMsg]);
     setInput('');
-    setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
-    
-    // Artificial delay for "thinking" feel
-    setTimeout(async () => {
-      setIsTyping(true);
-      try {
-        const response = await api.sendMessage(messageText);
-        setMessages(prev => [...prev, { 
-          text: response.reply, 
-          sender: 'bot', 
-          timestamp: new Date() 
-        }]);
-      } catch (error) {
-        setMessages(prev => [...prev, { 
-          text: "I'm having a bit of trouble reaching the handbook servers. Please try again or contact HR directly.", 
-          sender: 'bot', 
-          timestamp: new Date() 
-        }]);
-      } finally {
-        setIsLoading(false);
-        setIsTyping(false);
-      }
-    }, 600);
+
+    try {
+      const response = await fetch(ANTHROPIC_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'dangerously-allow-browser': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-sonnet-20240229',
+          max_tokens: 1024,
+          system: SYSTEM_PROMPT,
+          messages: messages.concat(newUserMsg).map(({ role, content }) => ({ role, content }))
+        })
+      });
+
+      if (!response.ok) throw new Error('API request failed');
+
+      const data = await response.json();
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.content[0].text,
+        timestamp: new Date().toISOString()
+      }]);
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "Something went wrong, please try again. (Make sure your VITE_ANTHROPIC_API_KEY is valid)",
+        timestamp: new Date().toISOString()
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const startNewChat = () => {
-    setMessages([{ 
-      text: "New session started. I'm ready to help with any handbook questions.", 
-      sender: 'bot',
-      timestamp: new Date()
-    }]);
+  const clearChat = () => {
+    const initialMsg = [{ 
+      role: 'assistant', 
+      content: "Hi! I'm your HR Assistant. Ask me anything about company policies, leave rules, onboarding, or employee management.",
+      timestamp: new Date().toISOString()
+    }];
+    setMessages(initialMsg);
+    localStorage.removeItem('hr_chat_history');
   };
 
-  // 4. Styles
-  const styles = {
-    container: {
-      display: 'flex',
-      height: '100vh',
-      backgroundColor: colors.white,
-      fontFamily: "'Sora', sans-serif",
-      overflow: 'hidden',
-      animation: 'fadeUp 0.6s ease-out'
-    },
-    sidebar: {
-      width: '300px',
-      backgroundColor: '#F9FAFB',
-      borderRight: `1px solid ${colors.border}`,
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '32px 24px'
-    },
-    main: {
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      backgroundColor: colors.white,
-      position: 'relative'
-    },
-    header: {
-      padding: '24px 40px',
-      borderBottom: `1px solid ${colors.border}`,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: '#fff',
-      zIndex: 10
-    },
-    messageList: {
-      flex: 1,
-      overflowY: 'auto',
-      padding: '40px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '32px',
-      backgroundImage: 'radial-gradient(#E5E7EB 1px, transparent 1px)',
-      backgroundSize: '30px 30px'
-    },
-    botBubble: {
-      backgroundColor: colors.white,
-      color: colors.primary,
-      padding: '20px 24px',
-      borderRadius: '0 24px 24px 24px',
-      fontSize: '14px',
-      lineHeight: '1.7',
-      maxWidth: '80%',
-      border: `1px solid ${colors.border}`,
-      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
-      position: 'relative'
-    },
-    userBubble: {
-      backgroundColor: colors.primary,
-      color: colors.white,
-      padding: '20px 24px',
-      borderRadius: '24px 24px 0 24px',
-      fontSize: '14px',
-      lineHeight: '1.7',
-      maxWidth: '80%',
-      boxShadow: '0 10px 15px -3px rgba(30, 27, 75, 0.2)'
-    },
-    inputArea: {
-      padding: '32px 40px',
-      borderTop: `1px solid ${colors.border}`,
-      backgroundColor: colors.white
-    },
-    inputWrapper: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '16px',
-      backgroundColor: '#F9FAFB',
-      padding: '8px 8px 8px 24px',
-      borderRadius: '20px',
-      border: `1.5px solid ${colors.border}`,
-      transition: 'all 0.2s'
-    },
-    newChatBtn: {
-      padding: '14px',
-      borderRadius: '14px',
-      backgroundColor: colors.primary,
-      color: colors.white,
-      fontSize: '13px',
-      fontWeight: '700',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '10px',
-      cursor: 'pointer',
-      marginBottom: '40px',
-      boxShadow: '0 4px 12px rgba(30, 27, 75, 0.2)',
-      transition: 'transform 0.2s'
-    },
-    sidebarItem: (active) => ({
-      padding: '14px 16px',
-      borderRadius: '12px',
-      backgroundColor: active ? colors.lightPurple : 'transparent',
-      color: active ? colors.accent : colors.muted,
-      fontSize: '13px',
-      fontWeight: '600',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      cursor: 'pointer',
-      marginBottom: '6px',
-      transition: 'all 0.2s'
-    })
+  const exportChat = () => {
+    const text = messages.map(m => `[${new Date(m.timestamp).toLocaleString()}] ${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join('\n\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hr-chat-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
   };
 
   return (
-    <div style={styles.container}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%', 
+      backgroundColor: 'var(--bg-card)',
+      color: 'var(--text-primary)',
+      transition: 'all 0.3s ease'
+    }}>
+      {/* Header */}
+      <div style={{ 
+        padding: '16px 20px', 
+        borderBottom: '1px solid var(--border-color)', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between' 
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ backgroundColor: 'var(--accent-color)', padding: '8px', borderRadius: '10px', color: '#fff' }}>
+            <Bot size={20} />
+          </div>
+          <div>
+            <div style={{ fontWeight: '800', fontSize: '15px' }}>HR Assistant</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10B981' }} /> Online
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={exportChat} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }} title="Export Chat"><Download size={18} /></button>
+          <button onClick={clearChat} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }} title="Clear Chat"><Trash2 size={18} /></button>
+          {isDrawer && <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={20} /></button>}
+        </div>
+      </div>
+
+      {/* Message List */}
+      <div style={{ 
+        flex: 1, 
+        overflowY: 'auto', 
+        padding: '20px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '20px' 
+      }}>
+        {messages.map((m, i) => (
+          <div key={i} style={{ 
+            display: 'flex', 
+            justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start',
+            gap: '12px',
+            animation: 'fadeInUp 0.3s ease-out'
+          }}>
+            {m.role === 'assistant' && (
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Bot size={16} color="var(--accent-color)" />
+              </div>
+            )}
+            <div style={{ maxWidth: '80%' }}>
+              <div style={{ 
+                padding: '12px 16px', 
+                borderRadius: m.role === 'user' ? '18px 18px 0 18px' : '0 18px 18px 18px',
+                backgroundColor: m.role === 'user' ? 'var(--accent-color)' : 'var(--bg-primary)',
+                color: m.role === 'user' ? '#fff' : 'var(--text-primary)',
+                fontSize: '14px',
+                lineHeight: '1.5',
+                boxShadow: 'var(--card-shadow)'
+              }}>
+                {m.content}
+              </div>
+              <div style={{ 
+                fontSize: '10px', 
+                color: 'var(--text-secondary)', 
+                marginTop: '4px',
+                textAlign: m.role === 'user' ? 'right' : 'left'
+              }}>
+                {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+            {m.role === 'user' && (
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--accent-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+                <User size={16} />
+              </div>
+            )}
+          </div>
+        ))}
+        {isLoading && (
+          <div style={{ display: 'flex', gap: '12px', animation: 'fadeInUp 0.3s ease-out' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bot size={16} color="var(--accent-color)" />
+            </div>
+            <div style={{ backgroundColor: 'var(--bg-primary)', padding: '12px 20px', borderRadius: '0 18px 18px 18px', display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <div className="dot" style={{ width: '6px', height: '6px', backgroundColor: 'var(--text-secondary)', borderRadius: '50%', animation: 'bounce 1.4s infinite ease-in-out both' }} />
+              <div className="dot" style={{ width: '6px', height: '6px', backgroundColor: 'var(--text-secondary)', borderRadius: '50%', animation: 'bounce 1.4s infinite ease-in-out both 0.2s' }} />
+              <div className="dot" style={{ width: '6px', height: '6px', backgroundColor: 'var(--text-secondary)', borderRadius: '50%', animation: 'bounce 1.4s infinite ease-in-out both 0.4s' }} />
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Suggested Chips */}
+      {messages.length === 1 && (
+        <div style={{ padding: '0 20px 10px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {suggestions.map((s, i) => (
+            <button 
+              key={i} 
+              onClick={() => handleSend(s)}
+              style={{ 
+                padding: '8px 14px', 
+                borderRadius: '10px', 
+                border: '1px solid var(--border-color)', 
+                backgroundColor: 'var(--bg-card)', 
+                color: 'var(--text-secondary)', 
+                fontSize: '12px', 
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--accent-color)'; e.currentTarget.style.color = 'var(--accent-color)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Input Area */}
+      <form 
+        onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+        style={{ padding: '20px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px' }}
+      >
+        <input 
+          type="text" 
+          value={input} 
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type your question..."
+          style={{ 
+            flex: 1, 
+            padding: '12px 16px', 
+            borderRadius: '12px', 
+            border: '1px solid var(--border-color)', 
+            backgroundColor: 'var(--bg-primary)', 
+            color: 'var(--text-primary)',
+            outline: 'none'
+          }}
+        />
+        <button 
+          type="submit"
+          disabled={!input.trim() || isLoading}
+          style={{ 
+            width: '44px', 
+            height: '44px', 
+            borderRadius: '12px', 
+            backgroundColor: 'var(--accent-color)', 
+            color: '#fff', 
+            border: 'none', 
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: (!input.trim() || isLoading) ? 0.6 : 1
+          }}
+        >
+          {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export const FloatingChat = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const location = window.location.pathname;
+
+  if (!isAuthenticated || location === '/login' || location === '/handbook-chat') return null;
+
+  return (
+    <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000 }}>
+      {/* Drawer */}
+      {isOpen && (
+        <div style={{ 
+          position: 'absolute', 
+          bottom: '80px', 
+          right: '0', 
+          width: '380px', 
+          height: '600px', 
+          maxHeight: 'calc(100vh - 120px)',
+          borderRadius: '24px', 
+          overflow: 'hidden', 
+          boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+          border: '1px solid var(--border-color)',
+          animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+        }}>
+          <ChatInterface isDrawer onClose={() => setIsOpen(false)} />
+        </div>
+      )}
+
+      {/* Bubble */}
+      <button 
+        onClick={() => { setIsOpen(!isOpen); setHasUnread(false); }}
+        style={{ 
+          width: '60px', 
+          height: '60px', 
+          borderRadius: '50%', 
+          backgroundColor: 'var(--accent-color)', 
+          color: '#fff', 
+          border: 'none', 
+          cursor: 'pointer',
+          boxShadow: '0 10px 20px rgba(99, 102, 241, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'transform 0.2s'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        {isOpen ? <X size={28} /> : <MessageCircle size={28} />}
+        {hasUnread && !isOpen && (
+          <span style={{ position: 'absolute', top: '0', right: '0', width: '14px', height: '14px', backgroundColor: '#EF4444', borderRadius: '50%', border: '2px solid #fff' }} />
+        )}
+      </button>
+
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px) scale(0.9); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes bounce {
           0%, 80%, 100% { transform: scale(0); }
           40% { transform: scale(1.0); }
         }
-        .dot {
-          width: 6px;
-          height: 6px;
-          background-color: #3D3B8E;
-          border-radius: 50%;
-          display: inline-block;
-          animation: bounce 1.4s infinite ease-in-out both;
-        }
-        .message-item { animation: fadeUp 0.4s ease-out; }
       `}</style>
+    </div>
+  );
+};
 
-      {/* ── Sidebar ── */}
-      <div style={styles.sidebar}>
-        <div style={styles.newChatBtn} onClick={startNewChat}>
-          <Plus size={18} /> New Conversation
-        </div>
+const HandbookChat = () => {
+  const [sessions] = useState([
+    { id: 1, title: 'Current Conversation', active: true },
+    { id: 2, title: 'Vacation Policy Q&A', active: false },
+    { id: 3, title: 'Onboarding Help', active: false },
+  ]);
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          <p style={{ fontSize: '11px', fontWeight: '800', color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px' }}>Recent Sessions</p>
-          <div style={styles.sidebarItem(true)}>
-            <MessageSquare size={16} /> Current Chat
-          </div>
-          <div style={styles.sidebarItem(false)}>
-            <History size={16} /> Expense Policy Q&A
-          </div>
-          <div style={styles.sidebarItem(false)}>
-            <History size={16} /> Remote Work Guide
-          </div>
+  return (
+    <div style={{ display: 'flex', height: 'calc(100vh - 64px)', backgroundColor: 'var(--bg-primary)' }}>
+      {/* Sidebar */}
+      <div style={{ 
+        width: '300px', 
+        backgroundColor: 'var(--bg-card)', 
+        borderRight: '1px solid var(--border-color)', 
+        display: 'flex', 
+        flexDirection: 'column',
+        padding: '24px' 
+      }}>
+        <button style={{ 
+          display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center',
+          width: '100%', padding: '12px', borderRadius: '12px', 
+          backgroundColor: 'var(--accent-color)', color: '#fff', border: 'none',
+          fontWeight: '700', cursor: 'pointer', marginBottom: '32px'
+        }}>
+          <Plus size={18} /> New Chat
+        </button>
 
-          <p style={{ fontSize: '11px', fontWeight: '800', color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '20px', marginTop: '40px' }}>Documentation</p>
-          <div style={styles.sidebarItem(false)}>
-            <BookOpen size={16} /> Employee Handbook
-          </div>
-          <div style={styles.sidebarItem(false)}>
-            <ShieldCheck size={16} /> Benefits Summary
-          </div>
-          <div style={styles.sidebarItem(false)}>
-            <Hash size={16} /> Code of Conduct
-          </div>
-        </div>
-
-        <div style={{ padding: '20px', backgroundColor: colors.lightPurple, borderRadius: '20px', marginTop: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: colors.accent, marginBottom: '8px' }}>
-            <Sparkles size={16} />
-            <span style={{ fontSize: '12px', fontWeight: '800' }}>AI Powered</span>
-          </div>
-          <p style={{ fontSize: '11px', color: colors.accent, opacity: 0.8, lineHeight: '1.6', margin: 0 }}>
-            Our assistant uses RAG technology to fetch answers directly from verified corporate documents.
-          </p>
+        <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>Recent Chats</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {sessions.map(s => (
+            <div key={s.id} style={{ 
+              padding: '12px 16px', borderRadius: '10px', 
+              backgroundColor: s.active ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+              color: s.active ? 'var(--accent-color)' : 'var(--text-secondary)',
+              fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '12px'
+            }}>
+              {s.active ? <MessageSquare size={16} /> : <History size={16} />} {s.title}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── Main Chat Area ── */}
-      <div style={styles.main}>
-        {/* Header */}
-        <header style={styles.header}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: colors.lightPurple, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.accent, boxShadow: '0 4px 10px rgba(61, 59, 142, 0.1)' }}>
-              <Bot size={28} />
-            </div>
-            <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: colors.primary, margin: 0 }}>AI Handbook Assistant</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.success }} />
-                <span style={{ fontSize: '12px', fontWeight: '600', color: colors.muted }}>Verified Knowledge Base · Active</span>
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <button style={{ padding: '10px', borderRadius: '12px', border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: colors.muted, cursor: 'pointer' }}><Download size={20} /></button>
-            <button style={{ padding: '10px', borderRadius: '12px', border: `1px solid ${colors.border}`, backgroundColor: 'transparent', color: colors.muted, cursor: 'pointer' }}><Maximize2 size={20} /></button>
-          </div>
-        </header>
-
-        {/* Message List */}
-        <div style={styles.messageList}>
-          {messages.map((msg, i) => (
-            <div key={i} className="message-item" style={{ display: 'flex', gap: '20px', flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row' }}>
-              <div style={{ 
-                width: '40px', height: '40px', borderRadius: '12px', flexShrink: 0,
-                backgroundColor: msg.sender === 'bot' ? colors.lightPurple : colors.primary,
-                color: msg.sender === 'bot' ? colors.accent : colors.white,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: msg.sender === 'user' ? '0 4px 10px rgba(30, 27, 75, 0.2)' : 'none'
-              }}>
-                {msg.sender === 'bot' ? <Bot size={20} /> : <User size={20} />}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start', gap: '8px', maxWidth: '100%' }}>
-                <div style={msg.sender === 'bot' ? styles.botBubble : styles.userBubble}>
-                  {msg.text}
-                </div>
-                <span style={{ fontSize: '10px', fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {msg.sender === 'bot' ? 'Assistant' : 'You'} • {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-            </div>
-          ))}
-          
-          {isTyping && (
-            <div style={{ display: 'flex', gap: '20px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: colors.lightPurple, color: colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Bot size={20} />
-              </div>
-              <div style={{ ...styles.botBubble, padding: '16px 24px' }}>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <div className="dot" style={{ animationDelay: '0s' }} />
-                  <div className="dot" style={{ animationDelay: '0.2s' }} />
-                  <div className="dot" style={{ animationDelay: '0.4s' }} />
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: colors.accent, marginLeft: '8px' }}>Thinking...</span>
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Footer Area */}
-        <div style={styles.inputArea}>
-          {messages.length < 3 && !isLoading && (
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '24px' }}>
-              {suggestions.map(s => (
-                <div 
-                  key={s.title} 
-                  style={{ padding: '10px 20px', borderRadius: '14px', border: `1px solid ${colors.border}`, fontSize: '13px', fontWeight: '700', color: colors.primary, cursor: 'pointer', backgroundColor: '#fff', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
-                  onClick={() => handleSend(null, s.text)}
-                  onMouseOver={e => { e.currentTarget.style.borderColor = colors.accent; e.currentTarget.style.backgroundColor = colors.lightPurple; }}
-                  onMouseOut={e => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.backgroundColor = '#fff'; }}
-                >
-                  <span>{s.icon}</span> {s.title}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <form onSubmit={handleSend}>
-            <div style={styles.inputWrapper}>
-              <Smile size={22} style={{ color: colors.muted, cursor: 'pointer' }} />
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask me anything about company policies..."
-                disabled={isLoading}
-                style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '15px', fontWeight: '500', outline: 'none', color: colors.primary, padding: '12px 0' }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Paperclip size={22} style={{ color: colors.muted, cursor: 'pointer' }} />
-                <button 
-                  type="submit" 
-                  disabled={!input.trim() || isLoading}
-                  style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '14px',
-                    backgroundColor: input.trim() && !isLoading ? colors.primary : '#E5E7EB',
-                    color: colors.white,
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: input.trim() && !isLoading ? 'pointer' : 'default',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
-                </button>
-              </div>
-            </div>
-          </form>
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '32px', marginTop: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldCheck size={14} style={{ color: colors.success }} />
-              <span style={{ fontSize: '11px', fontWeight: '800', color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>End-to-End Encrypted</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Info size={14} style={{ color: colors.accent }} />
-              <span style={{ fontSize: '11px', fontWeight: '800', color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Verified Source Material</span>
-            </div>
-          </div>
-        </div>
+      {/* Main Chat Area */}
+      <div style={{ flex: 1 }}>
+        <ChatInterface />
       </div>
     </div>
   );
 };
 
-export default ChatBot;
+export default HandbookChat;

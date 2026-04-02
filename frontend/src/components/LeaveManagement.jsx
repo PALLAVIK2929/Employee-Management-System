@@ -1,432 +1,374 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Calendar, Plus, X, 
-  CheckCircle, XCircle, Clock,
-  ArrowRight, Download, Filter
+  Calendar, CheckCircle, XCircle, Clock, Search, Filter, X
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useLeave } from '../context/LeaveContext';
+import { useNotifications } from '../context/NotificationsContext';
+import { useToast } from '../App';
+import MyLeaves from './MyLeaves';
+import EmptyState from './EmptyState';
+import Avatar from './Avatar';
 
 const LeaveManagement = () => {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const role = user.role || 'admin';
+  const { role } = useAuth();
+  const { leaves, approveLeave, rejectLeave } = useLeave();
+  const { notifyLeaveApproved, notifyLeaveRejected } = useNotifications();
+  const { showToast } = useToast();
 
-  // Initial leaves state as requested
-  const [leaves, setLeaves] = useState([
-    { id: 1, employee: 'Dianne Russell', type: 'Casual', from: '2024-04-10', to: '2024-04-12', days: 2, reason: 'Family function', status: 'Pending' },
-    { id: 2, employee: 'Standard Employee', type: 'Sick', from: '2024-04-05', to: '2024-04-05', days: 1, reason: 'Fever', status: 'Approved' },
-    { id: 3, employee: 'Eleanor Pena', type: 'Earned', from: '2024-03-20', to: '2024-03-25', days: 5, reason: 'Annual vacation', status: 'Rejected' },
-    { id: 4, employee: 'Standard Employee', type: 'WFH', from: '2024-04-15', to: '2024-04-15', days: 1, reason: 'Home delivery', status: 'Pending' },
-  ]);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [rejectModal, setRejectModal] = useState({ isOpen: false, leaveId: null });
+  const [rejectionReason, setRejectionReason] = useState('');
 
-  const [filter, setFilter] = useState('All');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState({
-    employee: '',
-    type: 'Casual',
-    from: '',
-    to: '',
-    reason: ''
+  // ESC key to close modal
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && rejectModal.isOpen) {
+        setRejectModal({ isOpen: false, leaveId: null });
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [rejectModal.isOpen]);
+
+  // If employee, show their personal leave page
+  if (role === 'employee') {
+    return <MyLeaves />;
+  }
+
+  // Filter leaves
+  const filteredLeaves = leaves.filter(leave => {
+    const matchesStatus = statusFilter === 'All' || leave.status === statusFilter.toLowerCase();
+    const matchesType = typeFilter === 'All' || leave.type === typeFilter;
+    const matchesSearch = searchQuery === '' || 
+      leave.employeeName.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return matchesStatus && matchesType && matchesSearch;
   });
 
-  // Design Tokens
-  const colors = {
-    white: '#fff',
-    pageBg: '#F3F4F6',
-    primary: '#1E1B4B',
-    accent: '#3D3B8E',
-    muted: '#6B7280',
-    border: '#E5E7EB',
-    casual: '#4F46E5',
-    sick: '#E11D48',
-    earned: '#059669',
-    wfh: '#0284C7',
-    pending: '#F59E0B',
-    approved: '#10B981',
-    rejected: '#EF4444'
+  const handleApprove = (leaveId) => {
+    const leave = leaves.find(l => l.id === leaveId);
+    approveLeave(leaveId);
+    
+    // Trigger notification
+    const dates = `${leave.from} to ${leave.to}`;
+    notifyLeaveApproved(leave.employeeId, leave.employeeName, dates);
+    
+    showToast(`Leave approved for ${leave.employeeName}`, 'success');
   };
 
-  const balances = [
-    { type: 'Casual Leave', color: colors.casual, total: 8, used: 4 },
-    { type: 'Sick Leave', color: colors.sick, total: 6, used: 2 },
-    { type: 'Earned Leave', color: colors.earned, total: 15, used: 3 },
-    { type: 'Work From Home', color: colors.wfh, total: 12, used: 7 }
-  ];
-
-  // Helper functions
-  const calculateDays = (from, to) => {
-    if (!from || !to) return 0;
-    const start = new Date(from);
-    const end = new Date(to);
-    const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 1;
+  const handleRejectClick = (leaveId) => {
+    setRejectModal({ isOpen: true, leaveId });
+    setRejectionReason('');
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newLeave = {
-      id: Date.now(),
-      employee: role === 'admin' ? (form.employee || 'Admin User') : (user.name || 'Standard Employee'),
-      type: form.type,
-      from: form.from,
-      to: form.to,
-      days: calculateDays(form.from, form.to),
-      reason: form.reason,
-      status: 'Pending'
-    };
-    setLeaves([newLeave, ...leaves]);
-    setIsModalOpen(false);
-    setForm({ employee: '', type: 'Casual', from: '', to: '', reason: '' });
-  };
-
-  const updateStatus = (id, newStatus) => {
-    setLeaves(leaves.map(l => l.id === id ? { ...l, status: newStatus } : l));
-  };
-
-  const filteredLeaves = filter === 'All' ? leaves : leaves.filter(l => l.status === filter);
-  const displayLeaves = role === 'admin' ? filteredLeaves : filteredLeaves.filter(l => l.employee === (user.name || 'Standard Employee'));
-
-  // Inline Styles
-  const styles = {
-    container: {
-      padding: '2rem',
-      backgroundColor: colors.pageBg,
-      minHeight: '100vh',
-      fontFamily: "'Inter', sans-serif"
-    },
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '2.5rem'
-    },
-    title: {
-      fontSize: '1.875rem',
-      fontWeight: '800',
-      color: colors.primary,
-      margin: 0
-    },
-    subtitle: {
-      fontSize: '0.875rem',
-      color: colors.muted,
-      marginTop: '0.5rem'
-    },
-    applyBtn: {
-      backgroundColor: colors.primary,
-      color: colors.white,
-      padding: '0.75rem 1.5rem',
-      borderRadius: '10px',
-      border: 'none',
-      fontWeight: '700',
-      fontSize: '0.875rem',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
-      transition: 'opacity 0.2s'
-    },
-    balanceGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(4, 1fr)',
-      gap: '1.5rem',
-      marginBottom: '2.5rem'
-    },
-    balanceCard: (color) => ({
-      backgroundColor: colors.white,
-      borderRadius: '14px',
-      padding: '1.5rem',
-      borderTop: `4px solid ${color}`,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-    }),
-    progressBg: {
-      width: '100%',
-      height: '8px',
-      backgroundColor: '#F3F4F6',
-      borderRadius: '4px',
-      margin: '1rem 0 0.5rem 0',
-      overflow: 'hidden'
-    },
-    progressFill: (percent, color) => ({
-      width: `${percent}%`,
-      height: '100%',
-      backgroundColor: color,
-      borderRadius: '4px',
-      transition: 'width 0.5s ease-out'
-    }),
-    tableCard: {
-      backgroundColor: colors.white,
-      borderRadius: '14px',
-      border: `1px solid ${colors.border}`,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-      overflow: 'hidden'
-    },
-    tabs: {
-      display: 'flex',
-      padding: '1rem 1.5rem',
-      borderBottom: `1px solid ${colors.border}`,
-      gap: '2rem'
-    },
-    tab: (active) => ({
-      padding: '0.5rem 0',
-      fontSize: '0.875rem',
-      fontWeight: active ? '700' : '500',
-      color: active ? colors.primary : colors.muted,
-      borderBottom: `2px solid ${active ? colors.primary : 'transparent'}`,
-      cursor: 'pointer',
-      transition: 'all 0.2s'
-    }),
-    badge: (type, status = false) => {
-      let color = colors.muted;
-      if (status) {
-        if (type === 'Approved') color = colors.approved;
-        if (type === 'Rejected') color = colors.rejected;
-        if (type === 'Pending') color = colors.pending;
-      } else {
-        if (type === 'Casual') color = colors.casual;
-        if (type === 'Sick') color = colors.sick;
-        if (type === 'Earned') color = colors.earned;
-        if (type === 'WFH') color = colors.wfh;
-      }
-      return {
-        padding: '0.25rem 0.75rem',
-        borderRadius: '999px',
-        fontSize: '0.75rem',
-        fontWeight: '700',
-        backgroundColor: `${color}15`,
-        color: color,
-        display: 'inline-block'
-      };
-    },
-    actionBtn: (approved) => ({
-      padding: '0.4rem 0.8rem',
-      borderRadius: '6px',
-      border: 'none',
-      fontSize: '0.75rem',
-      fontWeight: '700',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.25rem',
-      backgroundColor: approved ? `${colors.approved}15` : `${colors.rejected}15`,
-      color: approved ? colors.approved : colors.rejected,
-      transition: 'opacity 0.2s'
-    }),
-    modalOverlay: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      backdropFilter: 'blur(4px)'
-    },
-    modal: {
-      backgroundColor: colors.white,
-      width: '500px',
-      borderRadius: '14px',
-      overflow: 'hidden',
-      boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
-    },
-    modalHeader: {
-      backgroundColor: colors.primary,
-      padding: '1.5rem',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      color: colors.white
-    },
-    form: {
-      padding: '2rem',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '1.5rem'
-    },
-    inputGroup: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.5rem'
-    },
-    label: {
-      fontSize: '0.75rem',
-      fontWeight: '700',
-      color: colors.primary,
-      textTransform: 'uppercase',
-      letterSpacing: '0.05em'
-    },
-    input: {
-      padding: '0.75rem 1rem',
-      borderRadius: '8px',
-      border: `1px solid ${colors.border}`,
-      fontSize: '0.875rem',
-      outline: 'none',
-      backgroundColor: '#FAFAFA'
+  const handleRejectConfirm = () => {
+    if (!rejectionReason.trim()) {
+      showToast('Please provide a rejection reason', 'error');
+      return;
     }
+
+    const leave = leaves.find(l => l.id === rejectModal.leaveId);
+    rejectLeave(rejectModal.leaveId, rejectionReason);
+    
+    // Trigger notification
+    const dates = `${leave.from} to ${leave.to}`;
+    notifyLeaveRejected(leave.employeeId, leave.employeeName, dates, rejectionReason);
+    
+    showToast(`Leave rejected for ${leave.employeeName}`, 'success');
+    setRejectModal({ isOpen: false, leaveId: null });
+    setRejectionReason('');
   };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+      approved: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+    };
+
+    const icons = {
+      pending: <Clock size={14} />,
+      approved: <CheckCircle size={14} />,
+      rejected: <XCircle size={14} />
+    };
+
+    return (
+      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${styles[status]}`}>
+        {icons[status]}
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
+  };
+
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
+
+  const pendingCount = leaves.filter(l => l.status === 'pending').length;
+  const approvedCount = leaves.filter(l => l.status === 'approved').length;
+  const rejectedCount = leaves.filter(l => l.status === 'rejected').length;
 
   return (
-    <div style={styles.container}>
+    <div className="max-w-7xl mx-auto p-8">
       {/* Header */}
-      <header style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Leave Management</h1>
-          <p style={styles.subtitle}>Apply, approve and track employee leaves</p>
-        </div>
-        <button style={styles.applyBtn} onClick={() => setIsModalOpen(true)}>
-          <Plus size={18} />
-          Apply for Leave
-        </button>
-      </header>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">Leave Management</h1>
+        <p className="text-[var(--text-secondary)]">Review and manage employee leave requests</p>
+      </div>
 
-      {/* Balance Cards */}
-      <div style={styles.balanceGrid}>
-        {balances.map((b, i) => (
-          <div key={i} style={styles.balanceCard(b.color)}>
-            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: '600', color: colors.muted }}>{b.type}</p>
-            <h2 style={{ margin: '0.5rem 0', fontSize: '2rem', fontWeight: '800', color: colors.primary }}>{b.total}</h2>
-            <div style={styles.progressBg}>
-              <div style={styles.progressFill((b.used / b.total) * 100, b.color)} />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white dark:bg-[var(--bg-card)] rounded-xl p-6 border-l-4 border-[#F59E0B] shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+              <Clock size={24} className="text-amber-600 dark:text-amber-400" />
             </div>
-            <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: '600', color: colors.muted }}>
-              {b.used} used · {b.total - b.used} remaining
-            </p>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)] font-medium mb-1">Pending Requests</p>
+              <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">{pendingCount}</p>
+            </div>
           </div>
-        ))}
-      </div>
-
-      {/* Requests Table */}
-      <div style={styles.tableCard}>
-        <div style={styles.tabs}>
-          {['All', 'Pending', 'Approved', 'Rejected'].map(t => (
-            <span 
-              key={t} 
-              style={styles.tab(filter === t)}
-              onClick={() => setFilter(t)}
-            >
-              {t}
-            </span>
-          ))}
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${colors.border}`, backgroundColor: '#FAFAFA' }}>
-                <th style={{ padding: '1.25rem 1.5rem', fontSize: '0.75rem', fontWeight: '700', color: colors.muted, textTransform: 'uppercase' }}>Employee</th>
-                <th style={{ padding: '1.25rem 1.5rem', fontSize: '0.75rem', fontWeight: '700', color: colors.muted, textTransform: 'uppercase' }}>Leave Type</th>
-                <th style={{ padding: '1.25rem 1.5rem', fontSize: '0.75rem', fontWeight: '700', color: colors.muted, textTransform: 'uppercase' }}>From</th>
-                <th style={{ padding: '1.25rem 1.5rem', fontSize: '0.75rem', fontWeight: '700', color: colors.muted, textTransform: 'uppercase' }}>To</th>
-                <th style={{ padding: '1.25rem 1.5rem', fontSize: '0.75rem', fontWeight: '700', color: colors.muted, textTransform: 'uppercase' }}>Days</th>
-                <th style={{ padding: '1.25rem 1.5rem', fontSize: '0.75rem', fontWeight: '700', color: colors.muted, textTransform: 'uppercase' }}>Reason</th>
-                <th style={{ padding: '1.25rem 1.5rem', fontSize: '0.75rem', fontWeight: '700', color: colors.muted, textTransform: 'uppercase' }}>Status</th>
-                <th style={{ padding: '1.25rem 1.5rem', fontSize: '0.75rem', fontWeight: '700', color: colors.muted, textTransform: 'uppercase', textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayLeaves.map(l => (
-                <tr key={l.id} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                  <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.875rem', fontWeight: '600', color: colors.primary }}>{l.employee}</td>
-                  <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <span style={styles.badge(l.type)}>{l.type}</span>
-                  </td>
-                  <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.875rem', color: colors.muted }}>{l.from}</td>
-                  <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.875rem', color: colors.muted }}>{l.to}</td>
-                  <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.875rem', fontWeight: '700', color: colors.primary }}>{l.days}</td>
-                  <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.875rem', color: colors.muted }}>{l.reason}</td>
-                  <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <span style={styles.badge(l.status, true)}>{l.status}</span>
-                  </td>
-                  <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right' }}>
-                    {role === 'admin' && l.status === 'Pending' ? (
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                        <button style={styles.actionBtn(true)} onClick={() => updateStatus(l.id, 'Approved')}>
-                          <CheckCircle size={14} /> Approve
-                        </button>
-                        <button style={styles.actionBtn(false)} onClick={() => updateStatus(l.id, 'Rejected')}>
-                          <XCircle size={14} /> Reject
-                        </button>
-                      </div>
-                    ) : (
-                      <button style={{ color: colors.muted, background: 'none', border: 'none', cursor: 'pointer' }}>
-                        <ArrowRight size={18} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
-            <div style={styles.modalHeader}>
-              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: '700' }}>Apply for Leave</h3>
-              <X size={24} style={{ cursor: 'pointer' }} onClick={() => setIsModalOpen(false)} />
+        <div className="bg-white dark:bg-[var(--bg-card)] rounded-xl p-6 border-l-4 border-[#1D9E75] shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+              <CheckCircle size={24} className="text-green-600 dark:text-green-400" />
             </div>
-            <form style={styles.form} onSubmit={handleSubmit}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Employee Name</label>
-                <input 
-                  style={styles.input} 
-                  required
-                  placeholder="Enter employee name"
-                  value={form.employee}
-                  onChange={e => setForm({...form, employee: e.target.value})}
-                />
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Leave Type</label>
-                <select 
-                  style={styles.input}
-                  value={form.type}
-                  onChange={e => setForm({...form, type: e.target.value})}
-                >
-                  <option>Casual</option>
-                  <option>Sick</option>
-                  <option>Earned</option>
-                  <option>WFH</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ ...styles.inputGroup, flex: 1 }}>
-                  <label style={styles.label}>From Date</label>
-                  <input 
-                    type="date" 
-                    style={styles.input} 
-                    required
-                    value={form.from}
-                    onChange={e => setForm({...form, from: e.target.value})}
-                  />
-                </div>
-                <div style={{ ...styles.inputGroup, flex: 1 }}>
-                  <label style={styles.label}>To Date</label>
-                  <input 
-                    type="date" 
-                    style={styles.input} 
-                    required
-                    value={form.to}
-                    onChange={e => setForm({...form, to: e.target.value})}
-                  />
-                </div>
-              </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Reason</label>
-                <textarea 
-                  style={{ ...styles.input, height: '100px', resize: 'none' }}
-                  required
-                  placeholder="Enter reason for leave"
-                  value={form.reason}
-                  onChange={e => setForm({...form, reason: e.target.value})}
-                />
-              </div>
-              <button type="submit" style={{ ...styles.applyBtn, width: '100%', justifyContent: 'center', marginTop: '1rem' }}>
-                Submit Leave Request
+            <div>
+              <p className="text-sm text-[var(--text-secondary)] font-medium mb-1">Approved</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{approvedCount}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-[var(--bg-card)] rounded-xl p-6 border-l-4 border-[#E24B4A] shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-xl">
+              <XCircle size={24} className="text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)] font-medium mb-1">Rejected</p>
+              <p className="text-3xl font-bold text-red-600 dark:text-red-400">{rejectedCount}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] shadow-sm p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-secondary)]" size={20} />
+            <input
+              type="text"
+              placeholder="Search by employee name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:border-transparent transition-all"
+            />
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:border-transparent transition-all"
+            >
+              <option value="All">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+
+          {/* Type Filter */}
+          <div>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:border-transparent transition-all"
+            >
+              <option value="All">All Types</option>
+              <option value="Annual">Annual</option>
+              <option value="Sick">Sick</option>
+              <option value="Casual">Casual</option>
+              <option value="Maternity/Paternity">Maternity/Paternity</option>
+              <option value="Unpaid">Unpaid</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Leave Requests Table */}
+      <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-[var(--border-color)]">
+          <h2 className="text-xl font-bold text-[var(--text-primary)]">
+            All Leave Requests ({filteredLeaves.length})
+          </h2>
+        </div>
+
+        {filteredLeaves.length === 0 ? (
+          <EmptyState
+            illustration="leaves"
+            title="No leave requests found"
+            description={leaves.length === 0 ? "Employees haven't submitted any leave requests yet" : "Try adjusting your filters to see more results"}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-[var(--input-bg)]">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                    Employee Name
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                    Leave Type
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                    From
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                    To
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                    Days
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                    Reason
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-color)]">
+                {filteredLeaves.map((leave) => (
+                  <tr key={leave.id} className="hover:bg-[var(--input-bg)] transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar 
+                          initials={leave.employeeName.split(' ').map(n => n[0]).join('')}
+                          size="md"
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--text-primary)]">{leave.employeeName}</p>
+                          <p className="text-xs text-[var(--text-secondary)]">Applied {formatDate(leave.appliedOn)}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        {leave.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[var(--text-primary)] font-medium">
+                      {formatDate(leave.from)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[var(--text-primary)] font-medium">
+                      {formatDate(leave.to)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-bold text-[var(--text-primary)]">{leave.days}</span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-[var(--text-secondary)] max-w-xs">
+                      <div className="truncate" title={leave.reason}>{leave.reason}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {getStatusBadge(leave.status)}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {leave.status === 'pending' ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleApprove(leave.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-green-700 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50 rounded-lg transition-colors"
+                          >
+                            <CheckCircle size={14} />
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRejectClick(leave.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-red-700 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 rounded-lg transition-colors"
+                          >
+                            <XCircle size={14} />
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[var(--text-secondary)]">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Rejection Modal */}
+      {rejectModal.isOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setRejectModal({ isOpen: false, leaveId: null })}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reject-modal-title"
+        >
+          <div 
+            className="bg-[var(--bg-card)] rounded-2xl shadow-2xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 id="reject-modal-title" className="text-xl font-bold text-[var(--text-primary)]">Reject Leave Request</h3>
+              <button
+                onClick={() => setRejectModal({ isOpen: false, leaveId: null })}
+                className="p-2 hover:bg-[var(--input-bg)] rounded-lg transition-colors"
+                aria-label="Close modal"
+              >
+                <X size={20} className="text-[var(--text-secondary)]" />
               </button>
-            </form>
+            </div>
+            
+            <p className="text-sm text-[var(--text-secondary)] mb-4">
+              Please provide a reason for rejecting this leave request:
+            </p>
+            
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              rows={4}
+              className="w-full px-4 py-3 rounded-xl border border-[var(--border-color)] bg-[var(--input-bg)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:border-transparent transition-all resize-none mb-4"
+            />
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRejectModal({ isOpen: false, leaveId: null })}
+                className="flex-1 px-4 py-2 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)] font-semibold hover:bg-[var(--input-bg)] transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRejectConfirm}
+                className="flex-1 px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-all"
+              >
+                Confirm Reject
+              </button>
+            </div>
           </div>
         </div>
       )}

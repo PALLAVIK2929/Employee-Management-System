@@ -548,15 +548,60 @@ const LandingPage = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px' }}>
             {[
-              { title: "The Future of AI in HR", type: "Guide", img: "🤖" },
-              { title: "Building a Remote Culture", type: "Case Study", img: "🏠" },
-              { title: "Compliance Checklist 2026", type: "Whitepaper", img: "📝" }
+              { 
+                title: "The Future of AI in HR", 
+                type: "Guide", 
+                bgColor: "#1e1b4b",
+                icon: Sparkles
+              },
+              { 
+                title: "Building a Remote Culture", 
+                type: "Case Study", 
+                bgColor: "#534AB7",
+                icon: Globe
+              },
+              { 
+                title: "Compliance Checklist 2026", 
+                type: "Whitepaper", 
+                bgColor: "#1D9E75",
+                icon: ShieldCheck
+              }
             ].map((res, i) => (
-              <div key={i} style={{ backgroundColor: '#fff', borderRadius: '24px', border: '1px solid #E5E7EB', overflow: 'hidden', transition: 'all 0.3s ease' }}>
-                <div style={{ height: '200px', backgroundColor: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '60px' }}>{res.img}</div>
+              <div key={i} style={{ backgroundColor: '#fff', borderRadius: '24px', border: '1px solid #E5E7EB', overflow: 'hidden', transition: 'all 0.3s ease', cursor: 'pointer' }}
+                onMouseOver={e => {
+                  e.currentTarget.style.transform = 'translateY(-8px)';
+                  e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(30, 27, 75, 0.15)';
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ 
+                  height: '200px', 
+                  backgroundColor: res.bgColor,
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  borderRadius: '12px 12px 0 0'
+                }}>
+                  {/* Dot grid pattern overlay */}
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
+                    backgroundSize: '20px 20px'
+                  }} />
+                  {/* Icon */}
+                  <div style={{ position: 'relative', zIndex: 1 }}>
+                    <res.icon size={40} color="white" strokeWidth={2} />
+                  </div>
+                </div>
                 <div style={{ padding: '24px' }}>
                   <div style={{ fontSize: '12px', fontWeight: '800', color: '#3D3B8E', textTransform: 'uppercase', marginBottom: '8px' }}>{res.type}</div>
-                  <h4 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '16px' }}>{res.title}</h4>
+                  <h4 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '16px', color: '#1E1B4B' }}>{res.title}</h4>
                   <a href="#" style={{ color: '#1E1B4B', fontWeight: '700', fontSize: '14px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>Read Article <ArrowRight size={16} /></a>
                 </div>
               </div>

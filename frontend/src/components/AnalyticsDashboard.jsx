@@ -1,144 +1,206 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
 } from 'recharts';
 import { 
   Users, Calendar, CheckCircle, TrendingUp, 
-  Clock, Award, Briefcase, Building
+  PlusCircle, UserCheck, Clock, Award
 } from 'lucide-react';
+import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
+
+const AnimatedCounter = ({ target, duration = 2000, suffix = "" }) => {
+  const [count, setCount] = useState(0);
+  const startTimeRef = useRef(null);
+
+  useEffect(() => {
+    const targetNum = parseFloat(target.toString().replace(/[^0-9.]/g, ''));
+    
+    const animate = (timestamp) => {
+      if (!startTimeRef.current) startTimeRef.current = timestamp;
+      const progress = timestamp - startTimeRef.current;
+      const percentage = Math.min(progress / duration, 1);
+      
+      const easeOutCubic = 1 - Math.pow(1 - percentage, 3);
+      setCount(easeOutCubic * targetNum);
+
+      if (percentage < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+    return () => startTimeRef.current = null;
+  }, [target, duration]);
+
+  const formattedCount = target.toString().includes('%') 
+    ? count.toFixed(1) + "%" 
+    : Math.floor(count).toLocaleString() + suffix;
+
+  return <span>{formattedCount}</span>;
+};
 
 const AnalyticsDashboard = () => {
-  const attendanceData = [
-    { name: 'Mon', present: 95, absent: 5 },
-    { name: 'Tue', present: 98, absent: 2 },
-    { name: 'Wed', present: 92, absent: 8 },
-    { name: 'Thu', present: 96, absent: 4 },
-    { name: 'Fri', present: 90, absent: 10 },
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    activeDepartments: 0,
+    onLeaveToday: 0,
+    newThisMonth: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  const headcountData = [
+    { month: 'Jan', count: 105 },
+    { month: 'Feb', count: 108 },
+    { month: 'Mar', count: 112 },
+    { month: 'Apr', count: 115 },
+    { month: 'May', count: 118 },
+    { month: 'Jun', count: 124 },
+    { month: 'Jul', count: 128 },
+    { month: 'Aug', count: 132 },
+    { month: 'Sep', count: 135 },
+    { month: 'Oct', count: 138 },
+    { month: 'Nov', count: 142 },
+    { month: 'Dec', count: 145 },
   ];
 
-  const leaveUsageData = [
-    { name: 'Sick Leave', value: 25 },
-    { name: 'Casual Leave', value: 45 },
-    { name: 'Earned Leave', value: 30 },
+  const [deptData, setDeptData] = useState([]);
+  
+  const leaveData = [
+    { name: 'Approved', value: 45, color: '#1D9E75' },
+    { name: 'Pending', value: 25, color: '#534AB7' },
+    { name: 'Rejected', value: 15, color: '#D85A30' },
   ];
 
-  const taskCompletionData = [
-    { name: 'Week 1', completed: 12, total: 15 },
-    { name: 'Week 2', completed: 18, total: 20 },
-    { name: 'Week 3', completed: 15, total: 18 },
-    { name: 'Week 4', completed: 22, total: 25 },
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [employees, departments] = await Promise.all([
+          api.getEmployees(),
+          api.getDepartments()
+        ]);
 
-  const COLORS = ['#3D3B8E', '#10B981', '#F59E0B', '#EF4444'];
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
 
-  const colors = {
-    primary: '#1E1B4B',
-    accent: '#3D3B8E',
-    success: '#10B981',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    bg: '#F3F4F6',
-    white: '#FFFFFF',
-    textMuted: '#6B7280'
-  };
+        setStats({
+          totalEmployees: employees.length,
+          activeDepartments: departments.length,
+          onLeaveToday: employees.filter(e => e.status === 'On Leave').length,
+          newThisMonth: employees.filter(e => {
+            const hireDate = new Date(e.hire_date);
+            return hireDate.getMonth() === currentMonth && hireDate.getFullYear() === currentYear;
+          }).length
+        });
+
+        const distribution = departments.map(dept => ({
+          name: dept.name,
+          count: employees.filter(e => e.department_id === dept.id).length
+        }));
+        setDeptData(distribution);
+
+      } catch (error) {
+        console.error("Error fetching analytics data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const CHART_COLORS = ['#534AB7', '#1D9E75', '#D85A30', '#6366F1', '#F59E0B'];
 
   return (
-    <div style={{ padding: '24px', fontFamily: "'Inter', sans-serif", backgroundColor: colors.bg, minHeight: 'calc(100vh - 64px)' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: colors.primary }}>Analytics Dashboard</h1>
-        <p style={{ color: colors.textMuted }}>Key performance indicators and workforce insights</p>
+    <div style={{ padding: '24px', backgroundColor: 'var(--bg-primary)', minHeight: 'calc(100vh - 64px)', transition: 'all 0.3s' }}>
+      <div style={{ marginBottom: '32px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '8px' }}>Analytics Dashboard</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Comprehensive workforce insights and performance metrics.</p>
       </div>
 
-      {/* Stats Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-        <StatCard icon={Users} label="Total Headcount" value="124" trend="+4%" color={colors.accent} />
-        <StatCard icon={Calendar} label="Avg. Attendance" value="94.2%" trend="+1.2%" color={colors.success} />
-        <StatCard icon={CheckCircle} label="Task Completion" value="88%" trend="+5.4%" color={colors.warning} />
-        <StatCard icon={TrendingUp} label="Retention Rate" value="92%" trend="+2%" color={colors.error} />
+      {/* Top Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+        <StatCard icon={Users} label="Total Employees" value={stats.totalEmployees} color="#534AB7" />
+        <StatCard icon={Building} label="Active Departments" value={stats.activeDepartments} color="#1D9E75" />
+        <StatCard icon={Calendar} label="On Leave Today" value={stats.onLeaveToday} color="#D85A30" />
+        <StatCard icon={PlusCircle} label="New This Month" value={stats.newThisMonth} color="#6366F1" />
       </div>
 
-      {/* Charts Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px', marginBottom: '24px' }}>
-        {/* Attendance Overview */}
-        <div style={{ backgroundColor: colors.white, padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '20px', color: colors.primary }}>Attendance Overview (Last 5 Days)</h2>
-          <div style={{ height: '300px', width: '100%' }}>
+      {/* Main Charts Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        {/* Headcount Growth - Line Chart */}
+        <div style={{ backgroundColor: 'var(--bg-card)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: 'var(--card-shadow)' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '24px', color: 'var(--text-primary)' }}>Headcount Growth (12 Months)</h2>
+          <div style={{ height: '350px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={attendanceData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
+              <AreaChart data={headcountData}>
+                <defs>
+                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#534AB7" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#534AB7" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-                  cursor={{ fill: '#F9FAFB' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
                 />
-                <Legend iconType="circle" />
-                <Bar dataKey="present" fill={colors.accent} radius={[4, 4, 0, 0]} name="Present" />
-                <Bar dataKey="absent" fill="#E5E7EB" radius={[4, 4, 0, 0]} name="Absent" />
-              </BarChart>
+                <Area type="monotone" dataKey="count" stroke="#534AB7" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" isAnimationActive={true} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Leave Usage */}
-        <div style={{ backgroundColor: colors.white, padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '20px', color: colors.primary }}>Leave Distribution</h2>
-          <div style={{ height: '300px', width: '100%' }}>
+        {/* Leave Status - Donut Chart */}
+        <div style={{ backgroundColor: 'var(--bg-card)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: 'var(--card-shadow)' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '24px', color: 'var(--text-primary)' }}>Leave Status Breakdown</h2>
+          <div style={{ height: '350px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={leaveUsageData}
+                  data={leaveData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
+                  innerRadius={80}
+                  outerRadius={110}
+                  paddingAngle={8}
                   dataKey="value"
+                  isAnimationActive={true}
                 >
-                  {leaveUsageData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {leaveData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                <Legend verticalAlign="bottom" height={36} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                <Legend verticalAlign="bottom" height={36} iconType="circle" />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        {/* Task Completion Rate */}
-        <div style={{ backgroundColor: colors.white, padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '20px', color: colors.primary }}>Task Completion Trend</h2>
-          <div style={{ height: '250px', width: '100%' }}>
+      {/* Bottom Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+        {/* Department Distribution - Bar Chart */}
+        <div style={{ backgroundColor: 'var(--bg-card)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: 'var(--card-shadow)' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '24px', color: 'var(--text-primary)' }}>Department-wise Distribution</h2>
+          <div style={{ height: '300px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={taskCompletionData}>
-                <defs>
-                  <linearGradient id="colorComp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={colors.accent} stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor={colors.accent} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
-                <Area type="monotone" dataKey="completed" stroke={colors.accent} fillOpacity={1} fill="url(#colorComp)" strokeWidth={3} />
-              </AreaChart>
+              <BarChart data={deptData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <Tooltip cursor={{ fill: 'var(--bg-primary)', opacity: 0.4 }} contentStyle={{ backgroundColor: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+                <Bar dataKey="count" radius={[8, 8, 0, 0]} isAnimationActive={true}>
+                  {deptData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Productivity Score */}
-        <div style={{ backgroundColor: colors.white, padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '20px', color: colors.primary }}>Productivity Metrics</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <MetricRow icon={Clock} label="Avg. Work Hours" value="8.4 hrs/day" progress={84} color={colors.accent} />
-            <MetricRow icon={Award} label="Kudos Received" value="24 this month" progress={60} color={colors.success} />
-            <MetricRow icon={Briefcase} label="Projects Delivered" value="12 YTD" progress={75} color={colors.warning} />
-            <MetricRow icon={Building} label="Dept. Efficiency" value="92%" progress={92} color={colors.error} />
           </div>
         </div>
       </div>
@@ -146,39 +208,35 @@ const AnalyticsDashboard = () => {
   );
 };
 
-const StatCard = ({ icon: Icon, label, value, trend, color }) => (
-  <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-      <div style={{ padding: '8px', borderRadius: '8px', backgroundColor: `${color}10`, color: color }}>
-        <Icon size={20} />
+const StatCard = ({ icon: Icon, label, value, color }) => (
+  <div style={{ 
+    backgroundColor: 'var(--bg-card)', 
+    padding: '24px', 
+    borderRadius: '16px', 
+    border: '1px solid var(--border-color)', 
+    boxShadow: 'var(--card-shadow)',
+    transition: 'transform 0.3s ease',
+  }} className="quick-action-card">
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ 
+        padding: '12px', 
+        borderRadius: '12px', 
+        backgroundColor: `${color}15`, 
+        color: color 
+      }} className="card-icon">
+        <Icon size={24} />
       </div>
-      <span style={{ fontSize: '12px', fontWeight: '600', color: trend.startsWith('+') ? '#10B981' : '#EF4444' }}>
-        {trend}
-      </span>
+      <div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>{label}</div>
+        <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)' }}>
+          <AnimatedCounter target={value} />
+        </div>
+      </div>
     </div>
-    <div style={{ color: '#6B7280', fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>{label}</div>
-    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>{value}</div>
   </div>
 );
 
-const MetricRow = ({ icon: Icon, label, value, progress, color }) => (
-  <div>
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#374151' }}>
-        <Icon size={16} style={{ color: '#9CA3AF' }} />
-        <span>{label}</span>
-      </div>
-      <span style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>{value}</span>
-    </div>
-    <div style={{ height: '6px', backgroundColor: '#F3F4F6', borderRadius: '3px', overflow: 'hidden' }}>
-      <div style={{ 
-        height: '100%', 
-        width: `${progress}%`, 
-        backgroundColor: color,
-        borderRadius: '3px'
-      }} />
-    </div>
-  </div>
-);
+const Building = ({ size, color }) => <Building2 size={size} color={color} />;
+import { Building2 } from 'lucide-react';
 
 export default AnalyticsDashboard;

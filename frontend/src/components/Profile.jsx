@@ -7,6 +7,7 @@ import {
   Sparkles, FileText, Download, Eye,
   QrCode, CreditCard, Award, Zap, BookOpen
 } from 'lucide-react';
+import Avatar from './Avatar';
 
 const Profile = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -95,18 +96,9 @@ const Profile = () => {
       backgroundSize: '20px 20px',
       pointerEvents: 'none'
     },
-    avatar: {
-      width: '80px',
-      height: '80px',
-      borderRadius: '50%',
-      background: 'linear-gradient(135deg, #3D3B8E 0%, #6366F1 100%)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '24px',
-      fontWeight: '800',
+    avatarContainer: {
       position: 'relative',
-      boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
+      display: 'inline-block'
     },
     onlineDot: {
       width: '16px',
@@ -239,8 +231,8 @@ const Profile = () => {
       <div style={styles.hero}>
         <div style={styles.heroOverlay} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '32px', position: 'relative' }}>
-          <div style={styles.avatar}>
-            AU
+          <div style={styles.avatarContainer}>
+            <Avatar initials="AU" size="lg" />
             <div style={styles.onlineDot} />
           </div>
           <div>
