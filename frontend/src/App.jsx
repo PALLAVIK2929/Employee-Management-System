@@ -330,8 +330,8 @@ function AppContent() {
               <div className="modal-content">
                 <h3>{editingEmployee ? 'Edit Employee' : 'Add Employee'}</h3>
                 <EmployeeForm 
-                  onSubmit={handleEmployeeSubmit}
-                  onCancel={() => { setIsFormOpen(false); setEditingEmployee(null); }}
+                  onSave={handleEmployeeSubmit}
+                  onClose={() => { setIsFormOpen(false); setEditingEmployee(null); }}
                   employee={editingEmployee}
                   departments={departments}
                 />

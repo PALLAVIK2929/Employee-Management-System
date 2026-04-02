@@ -14,6 +14,7 @@ import Avatar from './Avatar';
 
 const AttendanceTracking = () => {
   const { user, role } = useAuth();
+  const isAdmin = role === 'admin';
   const { 
     attendance, 
     markAttendance, 

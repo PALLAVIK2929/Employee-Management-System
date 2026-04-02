@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   User, Briefcase, FileText, CheckCircle, 
   ChevronRight, ChevronLeft, Upload, Sparkles,
@@ -7,6 +8,7 @@ import {
 import { useToast } from '../App';
 
 const OnboardingFlow = () => {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -245,8 +247,24 @@ const OnboardingFlow = () => {
             <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginBottom: '12px' }}>Onboarding Complete!</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>The employee profile has been created and onboarding sequence initiated.</p>
             <button 
-              onClick={() => window.location.href = '/employees'}
-              style={{ backgroundColor: 'var(--accent-color)', color: '#fff', padding: '12px 32px', borderRadius: '12px', border: 'none', fontWeight: '700', cursor: 'pointer' }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Button clicked, navigating to /employees');
+                navigate('/employees');
+              }}
+              style={{ 
+                backgroundColor: 'var(--accent-color)', 
+                color: '#fff', 
+                padding: '12px 32px', 
+                borderRadius: '12px', 
+                border: 'none', 
+                fontWeight: '700', 
+                cursor: 'pointer',
+                pointerEvents: 'auto',
+                zIndex: 10,
+                position: 'relative'
+              }}
             >
               View Employee List
             </button>

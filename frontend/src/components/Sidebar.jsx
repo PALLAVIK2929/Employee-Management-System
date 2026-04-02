@@ -50,7 +50,7 @@ const Sidebar = () => {
     {
       title: 'SYSTEM',
       items: [
-        { icon: BookOpen, label: 'Handbook Chat', path: '/handbook' },
+        { icon: BookOpen, label: 'Handbook Chat', path: '/handbook', employeeOnly: true },
         { icon: Terminal, label: 'Platform Tools', path: '/tools', adminOnly: true },
         { icon: User, label: 'Profile', path: '/profile' },
       ]
